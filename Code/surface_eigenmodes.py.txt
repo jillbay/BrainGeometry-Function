@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Calculate the eigenmodes of a cortical surface and save the Laplacian matrix.
+
+@author: James Pang and Kevin Aquino, Monash University, 2022
+"""
+
+# Import all the libraries
+from lapy import Solver, TriaIO
+import numpy as np
+import nibabel as nib
+import brainspace.mesh as mesh
+import os
+from argparse import ArgumentParser
+
+def calc_eig(tria, num_modes):
+    """Calculate the eigenvalues, eigenmodes, and Laplacian matrix of a surface.
+
+    Parameters
+    ----------
+    tria : lapy compatible object
+        Loaded vtk object corresponding to a surface triangular mesh
+    num_modes : int
+        Number of eigenmodes to be calculated
+
+    Returns
+    ------
+    evals : array (num_modes x 1)
+        Eigenvalues
+    emodes : array (number of surface points x num_modes)
+        Eigenmodes
+    L : array
+        Laplacian matrix
+    """
+    
+    fem = Solver(tria)
+    evals, emodes = fem.eigs(k=num_modes)
+    L = fem.L  # Extract the Laplacian matrix
+
+    return evals, emodes, L
+
+def save_laplacian_matrix(L, filename):
+    """Save the Laplacian matrix to a file.
+
+    Parameters
+    ----------
+    L : array
+        Laplacian matrix
+    filename : str
+        Filename to save the Laplacian matrix
+    """
+    np.savetxt(filename, L)
+
+def create_temp_surface(surface_input, surface_output_filename):
+    """Write surface to a new vtk file.
+
+    Parameters
+    ----------
+    surface_input : brainspace compatible object
+        Loaded vtk object corresponding to a surface triangular mesh
+    surface_output_filename : str
+        Filename of surface to be saved
+    """
+    # ... [existing implementation of create_temp_surface]
+
+def get_indices(surface_original, surface_new):
+    """Extract indices of vertices of the two surfaces that match.
+
+    Parameters
+    ----------
+    surface_original : brainspace compatible object
+        Loaded vtk object corresponding to a surface triangular mesh
+    surface_new : brainspace compatible object
+        Loaded vtk object corresponding to a surface triangular mesh
+
+    Returns
+    ------
+    indices : array
+        indices of vertices
+    """
+    # ... [existing implementation of get_indices]
+
+def calc_surface_eigenmodes(surface_input_filename, mask_input_filename, output_eval_filename, output_emode_filename, output_laplacian_filename, save_cut, num_modes):
+    """Main function to calculate the eigenmodes of a cortical surface with application of a mask and save the Laplacian matrix.
+
+    Parameters
+    ----------
+    [same as before, including new parameter for output_laplacian_filename]
+    """
+
+    # ... [existing code for loading surface and mask]
+
+    # Calculate eigenvalues, eigenmodes, and Laplacian matrix
+    evals, emodes, L = calc_eig(tria, num_modes)
+    
+    # ... [existing code for reshaping and saving eigenmodes]
+
+    # Save the Laplacian matrix
+    save_laplacian_matrix(L, output_laplacian_filename)
+
+def calc_surface_eigenmodes_nomask(surface_input_filename, output_eval_filename, output_emode_filename, output_laplacian_filename, num_modes):
+    """Main function to calculate the eigenmodes of a cortical surface without application of a mask and save the Laplacian matrix.
+
+    Parameters
+    ----------
+    [parameters similar to calc_surface_eigenmodes, excluding mask related ones]
+    """
+
+    # ... [similar changes as in calc_surface_eigenmodes]
+
+def main(raw_args=None):
+    parser = ArgumentParser(epilog="surface_eigenmodes.py -- A function to calculate the eigenmodes of a cortical surface. James Pang, Monash University, 2022 <james.pang1@monash.edu>")
+    parser.add_argument("surface_input_filename", help="An input surface in vtk format", metavar="surface_input.vtk")
+    parser.add_argument("output_eval_filename", help="An output text file where the eigenvalues will be stored", metavar="evals.txt")
+    parser.add_argument("output_emode_filename", help="An output text file where the eigenmodes will be stored", metavar="emodes.txt")
+    parser.add_argument("-save_cut", dest="save_cut", default=0, help="Logical value to decide whether to write the masked version of the input surface", metavar="0")
+    parser.add_argument("-N", dest="num_modes", default=20, help="Number of eigenmodes to be calculated, default=20", metavar="20")
+    parser.add_argument("-is_mask", dest="is_mask", default=1, help="Logical value to decide whether to apply the mask", metavar="1")
+    parser.add_argument("-mask", dest="mask_input_filename", help="An input mask text or gifti file", metavar="mask.txt")
+    parser.add_argument("-laplacian", dest="output_laplacian_filename", help="An output text file where the Laplacian matrix will be stored", metavar="laplacian.txt")
+
+       args = parser.parse_args(raw_args)
+    surface_input_filename = args.surface_input_filename
+    output_eval_filename = args.output_eval_filename
+    output_emode_filename = args.output_emode_filename
+    save_cut = int(args.save_cut)
+    num_modes = int(args.num_modes)
+    is_mask = int(args.is_mask)
+    mask_input_filename = args.mask_input_filename
+    output_laplacian_filename = args.output_laplacian_filename
+
+    if is_mask == 0:
+        calc_surface_eigenmodes_nomask(surface_input_filename, output_eval_filename, output_emode_filename, output_laplacian_filename, num_modes)
+    else:
+        if mask_input_filename is None:
+            print('ERROR: You need to provide a mask file')
+        else:
+            calc_surface_eigenmodes(surface_input_filename, mask_input_filename, output_eval_filename, output_emode_filename, output_laplacian_filename, save_cut, num_modes)
+    
+if __name__ == '__main__':
+    
+    # running via commandline
+    main()
+    
+
+    # # running within python
+    # surface_interest = 'fsLR_32k'
+    # structure = 'midthickness'
+    # hemispheres = ['lh', 'rh']
+    # num_modes = 200
+    # save_cut = 0
+    
+    # for hemisphere in hemispheres:
+    #     print('Processing ' + hemisphere)
+
+    #     surface_input_filename = 'data/template_surfaces_volumes/' + surface_interest + '_' + structure + '-' + hemisphere + '.vtk'
+    #     mask_input_filename = 'data/template_surfaces_volumes/' + surface_interest + '_cortex-' + hemisphere + '_mask.txt'
+        
+    #     # with cortex mask (remove medial wall)
+    #     # this is the advisable way
+    #     output_eval_filename = 'data/template_eigenmodes/' + surface_interest + '_' + structure + '-' + hemisphere + '_eval_' + str(num_modes) + '.txt'
+    #     output_emode_filename = 'data/template_eigenmodes/' + surface_interest + '_' + structure + '-' + hemisphere + '_emode_' + str(num_modes) + '.txt'
+
+    #     calc_surface_eigenmodes(surface_input_filename, mask_input_filename, output_eval_filename, output_emode_filename, save_cut, num_modes)
+        
+    #     # without cortex mask
+    #     output_eval_filename = 'data/template_eigenmodes/' + 'nomask_' + surface_interest + '_' + structure + '-' + hemisphere + '_eval_' + str(num_modes) + '.txt'
+    #     output_emode_filename = 'data/template_eigenmodes/' + 'nomask_' + surface_interest + '_' + structure + '-' + hemisphere + '_emode_' + str(num_modes) + '.txt'
+
+    #     calc_surface_eigenmodes_nomask(surface_input_filename, output_eval_filename, output_emode_filename, num_modes)
